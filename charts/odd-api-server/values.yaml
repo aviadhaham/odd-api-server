@@ -1,0 +1,55 @@
+replicaCount: 1
+
+image:
+  repository: aviadhaham/odd-api-server
+  pullPolicy: IfNotPresent
+  tag: "3"
+
+imagePullSecrets: []
+
+service:
+  type: ClusterIP
+  port: 80
+
+ingress:
+  enabled: true
+  className: "nginx"
+  annotations:
+    kubernetes.io/ingress.class: nginx
+  hosts:
+    - host: odd-api-server.local
+      paths:
+        - path: /odd
+          pathType: ImplementationSpecific
+        - path: /ready
+          pathType: ImplementationSpecific
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 128Mi
+  limits:
+    cpu: 500m
+    memory: 512Mi
+
+strategy:
+  type: RollingUpdate
+  rollingUpdate:
+    maxUnavailable: 1
+    maxSurge: 1
+
+livenessProbe:
+  httpGet:
+    path: /ready
+    port: http
+readinessProbe:
+  httpGet:
+    path: /ready
+    port: http
+
+autoscaling:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 50
+  targetMemoryUtilizationPercentage: 50

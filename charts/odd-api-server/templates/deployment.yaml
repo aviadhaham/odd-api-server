@@ -1,0 +1,71 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "odd-api-server.fullname" . }}
+  labels:
+    {{- include "odd-api-server.labels" . | nindent 4 }}
+spec:
+  strategy:
+    type: {{ .Values.strategy.type | default "RollingUpdate" }}
+    rollingUpdate:
+      maxUnavailable: {{ .Values.strategy.rollingUpdate.maxUnavailable | default 1 }}
+      maxSurge: {{ .Values.strategy.rollingUpdate.maxSurge | default 1 }}
+  {{- if not .Values.autoscaling.enabled }}
+  replicas: {{ .Values.replicaCount }}
+  {{- end }}
+  selector:
+    matchLabels:
+      {{- include "odd-api-server.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      {{- with .Values.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      labels:
+        {{- include "odd-api-server.labels" . | nindent 8 }}
+        {{- with .Values.podLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: {{ .Chart.Name }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.service.port }}
+              protocol: TCP
+          livenessProbe:
+            {{- toYaml .Values.livenessProbe | nindent 12 }}
+          readinessProbe:
+            {{- toYaml .Values.readinessProbe | nindent 12 }}
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          volumeMounts:
+            - name: odd-logs-volume
+              mountPath: /tmp
+        - name: odd-logs-sidecar
+          image: busybox
+          command: ["/bin/sh", "-c"]
+          args: ["while true; do if [ -f /tmp/odd-logs.txt ]; then tail -f /tmp/odd-logs.txt; else echo 'Odd file not found'; fi; sleep 10; done"]
+          volumeMounts:
+            - name: odd-logs-volume
+              mountPath: /tmp
+          livenessProbe:
+            exec:
+              command: ["test", "-f", "/tmp/odd-logs.txt"]
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          readinessProbe:
+            exec:
+              command: ["test", "-f", "/tmp/odd-logs.txt"]
+            initialDelaySeconds: 5
+            periodSeconds: 10
+      volumes:
+        - name: odd-logs-volume
+          emptyDir: {}

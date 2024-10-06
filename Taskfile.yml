@@ -1,0 +1,24 @@
+version: "3"
+
+tasks:
+  default:
+    deps: [server:dev]
+
+  server:dev:
+    desc: Start the backend server
+    env:
+      PORT: 80
+    cmds:
+      - go run main.go
+
+  server:build:
+    desc: Build server for production
+    cmds:
+      - go build -o server main.go
+  server:
+    desc: Start the production server
+    deps: [server:build]
+    env:
+      PORT: 80
+    cmds:
+      - ./server
